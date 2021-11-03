@@ -54,8 +54,7 @@ class LSTM(nn.Module):
 		return out
 
 def train_model(model, epochs, lr):
-	parameters = filter(lambda p: p.requires_grad, model.parameters())
-	optimizer = torch.optim.Adam(parameters, lr=lr)
+	optimizer = torch.optim.Adam(mode.parameters(), lr=lr)
 	for i in range(epochs):
 		model.train()
 		sum_loss = 0.0
