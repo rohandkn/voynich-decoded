@@ -4,6 +4,7 @@ from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import Dataset, DataLoader
 from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
+import numpy as np
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
@@ -29,10 +30,10 @@ class VoynichDataset(Dataset):
 				concatLines += self.tokenizeLine(line.text)
 			if self.vm.pages[page].section not in labelList:
 				labelList[self.vm.pages[page].section] = len(labelList)
-			self.dataset.append(((concatLines), len(concatLines), labelList[self.vm.pages[page].section]))
+			if len(concatLines) > 0:
+				self.dataset.append(((concatLines), labelList[self.vm.pages[page].section], len(concatLines)))
 
 			self.vocab = self.vocab.union(set(concatLines))
-
 		vocab2index = {}
 		i = 0
 		for elem in self.vocab:
@@ -58,7 +59,7 @@ class LSTM(nn.Module):
 		self.embedding = nn.Embedding(vocab_len, embed_len, padding_idx=0)
 		self.lstm = nn.LSTM(input_size=embed_len, hidden_size=hidden_len, num_layers=1, batch_first=True, bidirectional=True)
 		self.dropout = nn.Dropout(0.3)
-		self.linear = nn.Linear(hidden_len, 5)
+		self.linear = nn.Linear(hidden_len, 6)
 		self.hidden_len = hidden_len
 	def forward(self, x, x_len):
 		out = self.embedding(x)
@@ -68,26 +69,27 @@ class LSTM(nn.Module):
 		out = self.linear(out[-1])
 		return out
 
-def train_model(model, train_dl, epochs, lr):
+def train_model(model, train_dl, epochs, lr, val_dl):
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 	for i in range(epochs):
 		model.train()
 		sum_loss = 0.0
 		total = 0
+		print("STARTING EPOCH "+str(i))
 		for x, y, l in train_dl:
 			x = x.long()
 			y = y.long()
 			y_pred = model(x, l)
-			print(y_pred)
 			optimizer.zero_grad()
 			loss = nn.functional.cross_entropy(y_pred, y)
 			loss.backward()
 			optimizer.step()
 			sum_loss += loss.item()*y.shape[0]
 			total += y.shape[0]
-		val_loss, val_acc, val_rmse = validation_metrics(model, val_dl)
-		if i % 5 == 1:
-			print("train loss %.3f, val loss %.3f, val accuracy %.3f, and val rmse %.3f" % (sum_loss/total, val_loss, val_acc, val_rmse))
+		val_loss, val_acc = validation_metrics(model, val_dl)
+		if i % 1 == 0:
+			print("train loss %.3f, val loss %.3f, val accuracy %.3f" % (sum_loss/total, val_loss, val_acc))
+
 
 def validation_metrics(model, valid_dl):
 	model.eval()
@@ -104,11 +106,16 @@ def validation_metrics(model, valid_dl):
 		correct += (pred == y).float().sum()
 		total += y.shape[0]
 		sum_loss += loss.item()*y.shape[0]
-		sum_rmse += np.sqrt(mean_squared_error(pred, y.unsqueeze(-1)))*y.shape[0]
-	return sum_loss/total, correct/total, sum_rmse/total
+	return sum_loss/total, correct/total
 
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 train = VoynichDataset()
-dataloader = DataLoader(train, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+trainD, valD = torch.utils.data.random_split(train, [167, 60])
+dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+
 l = LSTM(len(train.vocab), 300, 20)
-train_model(l, dataloader, 10, .01)
+print(validation_metrics(l, val_dl1))
+train_model(l, dataloader, 10, .01, val_dl1)
+#print(validation_metrics(l, val_dl))
+
