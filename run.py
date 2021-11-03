@@ -26,14 +26,14 @@ class VoynichDataset(Dataset):
 		labelList = {}
 		for page in self.vm.pages:
 			concatLines = []
-			for line in self.vm.pages[page]:
-				concatLines += self.tokenizeLine(line.text)
 			if self.vm.pages[page].section not in labelList:
 				labelList[self.vm.pages[page].section] = len(labelList)
-			if len(concatLines) > 0:
-				self.dataset.append(((concatLines), labelList[self.vm.pages[page].section], len(concatLines)))
+			for line in self.vm.pages[page]:
+				self.dataset.append(((line.text.split('.')), labelList[self.vm.pages[page].section], len(line.text.split('.'))))
+				self.vocab = self.vocab.union(set(line.text.split('.')))
 
-			self.vocab = self.vocab.union(set(concatLines))
+
+
 		vocab2index = {}
 		i = 0
 		for elem in self.vocab:
@@ -110,11 +110,12 @@ def validation_metrics(model, valid_dl):
 
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 train = VoynichDataset()
-trainD, valD = torch.utils.data.random_split(train, [167, 60])
+print(len(train))
+trainD, valD = torch.utils.data.random_split(train, [4589, 800])
 dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 
-l = LSTM(len(train.vocab), 300, 20)
+l = LSTM(len(train.vocab), 300, 75)
 print(validation_metrics(l, val_dl1))
 train_model(l, dataloader, 10, .01, val_dl1)
 #print(validation_metrics(l, val_dl))
