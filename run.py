@@ -22,13 +22,28 @@ class VoynichDataset(Dataset):
 		self.vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 		self.dataset = []
 		self.vocab = set()
+		labelList = {}
 		for page in self.vm.pages:
 			concatLines = []
 			for line in self.vm.pages[page]:
 				concatLines += self.tokenizeLine(line.text)
-			self.dataset.append((concatLines, self.vm.pages[page].section))
+			if self.vm.pages[page].section not in labelList:
+				labelList[self.vm.pages[page].section] = len(labelList)
+			self.dataset.append(((concatLines), len(concatLines), labelList[self.vm.pages[page].section]))
+
 			self.vocab = self.vocab.union(set(concatLines))
-		print(len(self.vocab))
+
+		vocab2index = {}
+		i = 0
+		for elem in self.vocab:
+			vocab2index[elem] = i
+			i+=1
+
+		for i in range(0, len(self.dataset)):
+			tmp = []
+			for elem in self.dataset[i][0]:
+				tmp.append(vocab2index[elem])
+			self.dataset[i] = (torch.FloatTensor(tmp), self.dataset[i][1], self.dataset[i][2])
 
 
 	def __len__(self):
@@ -53,8 +68,8 @@ class LSTM(nn.Module):
 		out = self.linear(out[-1])
 		return out
 
-def train_model(model, epochs, lr):
-	optimizer = torch.optim.Adam(mode.parameters(), lr=lr)
+def train_model(model, train_dl, epochs, lr):
+	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 	for i in range(epochs):
 		model.train()
 		sum_loss = 0.0
@@ -63,8 +78,9 @@ def train_model(model, epochs, lr):
 			x = x.long()
 			y = y.long()
 			y_pred = model(x, l)
+			print(y_pred)
 			optimizer.zero_grad()
-			loss = F.cross_entropy(y_pred, y)
+			loss = nn.functional.cross_entropy(y_pred, y)
 			loss.backward()
 			optimizer.step()
 			sum_loss += loss.item()*y.shape[0]
@@ -83,7 +99,7 @@ def validation_metrics(model, valid_dl):
 		x = x.long()
 		y = y.long()
 		y_hat = model(x, l)
-		loss = F.cross_entropy(y_hat, y)
+		loss = nn.functional.cross_entropy(y_hat, y)
 		pred = torch.max(y_hat, 1)[1]
 		correct += (pred == y).float().sum()
 		total += y.shape[0]
@@ -93,3 +109,6 @@ def validation_metrics(model, valid_dl):
 
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 train = VoynichDataset()
+dataloader = DataLoader(train, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+l = LSTM(len(train.vocab), 300, 20)
+train_model(l, dataloader, 10, .01)
