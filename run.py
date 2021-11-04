@@ -5,25 +5,21 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import Dataset, DataLoader
 from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
 import numpy as np
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 
 class VoynichDataset(Dataset):
-	"""Custom dataset."""
+	"""Voynich dataset."""
 
 	def tokenizeLine(self, lineText):
 		return lineText.split('.')
 
 	def __init__(self):
-		"""
-		Args:
-		csv_file (string): Path to the csv file with annotations.
-		root_dir (string): Directory with all the images.
-		transform (callable, optional): Optional transform to be applied
-		on a sample.
-		"""
 		self.vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 		self.dataset = []
 		self.vocab = set()
 		labelList = {}
+		# add all page to dataset
 		for page in self.vm.pages:
 			concatLines = []
 			if self.vm.pages[page].section not in labelList:
@@ -32,8 +28,7 @@ class VoynichDataset(Dataset):
 				self.dataset.append(((line.text.split('.')), labelList[self.vm.pages[page].section], len(line.text.split('.'))))
 				self.vocab = self.vocab.union(set(line.text.split('.')))
 
-
-
+		# create vocabulary for tokenizing string
 		vocab2index = {}
 		i = 0
 		for elem in self.vocab:
@@ -53,6 +48,7 @@ class VoynichDataset(Dataset):
 	def __getitem__(self, idx):
 		return self.dataset[idx]
 
+# LSTM module
 class LSTM(nn.Module):
 	def __init__(self, vocab_len, embed_len, hidden_len):
 		super(LSTM, self).__init__()
@@ -71,11 +67,14 @@ class LSTM(nn.Module):
 
 def train_model(model, train_dl, epochs, lr, val_dl):
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
 	for i in range(epochs):
 		model.train()
 		sum_loss = 0.0
 		total = 0
 		print("STARTING EPOCH "+str(i))
+
+		# loop through train dataloader
 		for x, y, l in train_dl:
 			x = x.long()
 			y = y.long()
@@ -111,6 +110,7 @@ def validation_metrics(model, valid_dl):
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 train = VoynichDataset()
 print(len(train))
+# create random train and val split
 trainD, valD = torch.utils.data.random_split(train, [4589, 800])
 dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
@@ -118,5 +118,4 @@ val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=
 l = LSTM(len(train.vocab), 300, 75)
 print(validation_metrics(l, val_dl1))
 train_model(l, dataloader, 10, .01, val_dl1)
-#print(validation_metrics(l, val_dl))
 
