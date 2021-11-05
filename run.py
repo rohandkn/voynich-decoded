@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
 import numpy as np
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from sklearn.metrics import classification_report
 
 
 class VoynichDataset(Dataset):
@@ -19,10 +20,12 @@ class VoynichDataset(Dataset):
 		self.dataset = []
 		self.vocab = set()
 		labelList = {}
+		self.labelSet = [""] * 6
 		# add all page to dataset
 		for page in self.vm.pages:
 			concatLines = []
 			if self.vm.pages[page].section not in labelList:
+				self.labelSet[len(labelList)] = self.vm.pages[page].section
 				labelList[self.vm.pages[page].section] = len(labelList)
 			for line in self.vm.pages[page]:
 				self.dataset.append(((line.text.split('.')), labelList[self.vm.pages[page].section], len(line.text.split('.'))))
@@ -65,7 +68,7 @@ class LSTM(nn.Module):
 		out = self.linear(out[-1])
 		return out
 
-def train_model(model, train_dl, epochs, lr, val_dl):
+def train_model(model, train_dl, epochs, lr, val_dl, ls):
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 	for i in range(epochs):
@@ -85,17 +88,19 @@ def train_model(model, train_dl, epochs, lr, val_dl):
 			optimizer.step()
 			sum_loss += loss.item()*y.shape[0]
 			total += y.shape[0]
-		val_loss, val_acc = validation_metrics(model, val_dl)
+		val_loss, val_acc = validation_metrics(model, val_dl, ls)
 		if i % 1 == 0:
 			print("train loss %.3f, val loss %.3f, val accuracy %.3f" % (sum_loss/total, val_loss, val_acc))
 
 
-def validation_metrics(model, valid_dl):
+def validation_metrics(model, valid_dl,lS):
 	model.eval()
 	correct = 0
 	total = 0
 	sum_loss = 0.0
 	sum_rmse = 0.0
+	predList = []
+	yList = []
 	for x, y, l in valid_dl:
 		x = x.long()
 		y = y.long()
@@ -103,8 +108,11 @@ def validation_metrics(model, valid_dl):
 		loss = nn.functional.cross_entropy(y_hat, y)
 		pred = torch.max(y_hat, 1)[1]
 		correct += (pred == y).float().sum()
+		predList.append(pred)
+		yList.append(y)
 		total += y.shape[0]
 		sum_loss += loss.item()*y.shape[0]
+	print(classification_report(yList, predList, target_names=lS))
 	return sum_loss/total, correct/total
 
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
@@ -115,7 +123,7 @@ trainD, valD = torch.utils.data.random_split(train, [4589, 800])
 dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 
-l = LSTM(len(train.vocab), 300, 75)
-print(validation_metrics(l, val_dl1))
-train_model(l, dataloader, 10, .01, val_dl1)
+l = LSTM(len(train.vocab), 300, 20)
+print(validation_metrics(l, val_dl1, train.labelSet))
+train_model(l, dataloader, 10, .01, val_dl1, train.labelSet)
 
