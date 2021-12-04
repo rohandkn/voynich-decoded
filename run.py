@@ -196,6 +196,7 @@ def Bert():
 	validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
 
 	model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+	model.to(device)
 
 	param_optimizer = list(model.named_parameters())
 	no_decay = ['bias', 'gamma', 'beta']
