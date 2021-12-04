@@ -21,34 +21,56 @@ class VoynichDataset(Dataset):
 		transform (callable, optional): Optional transform to be applied
 		on a sample.
 		"""
+		# voynich manuscript object
 		self.vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
+
+		# dataset object
 		self.dataset = []
+
+		# set of vocabulary
 		self.vocab = set()
-		self.labelSet = [""]*6
-		labelList = {}
+
+		# list of labels
+		self.labelList = [""]*6
+
+		# dictionay mapping label name to index in above list
+		labelMap = {}
+
+
 		for page in self.vm.pages:
-			concatLines = []
+
+			# create variable to hold all lines in page
+			linesInPage = []
 			for line in self.vm.pages[page]:
-				concatLines += self.tokenizeLine(line.text)
-			if self.vm.pages[page].section not in labelList:
-				self.labelSet[len(labelList)] = self.vm.pages[page].section
-				labelList[self.vm.pages[page].section] = len(labelList)
-			if len(concatLines) > 0:
-				self.dataset.append(((concatLines), labelList[self.vm.pages[page].section], len(concatLines)))
+				# concatenate current line to list of lines in page
+				linesInPage += self.tokenizeLine(line.text)
 
-			self.vocab = self.vocab.union(set(concatLines))
-		print(self.labelSet)
+			# add section if it doesn't exist
+			if self.vm.pages[page].section not in labelMap:
+				self.labelList[len(labelMap)] = self.vm.pages[page].section
+				labelMap[self.vm.pages[page].section] = len(labelMap)
+
+			# add lines, section id, and length of lines to dataset
+			if len(linesInPage) > 0:
+				self.dataset.append((linesInPage, labelMap[self.vm.pages[page].section], len(linesInPage)))
+
+			self.vocab = self.vocab.union(set(linesInPage))
+
+		# create dictionary mapping words to indices
 		vocab2index = {}
-		i = 0
-		for elem in self.vocab:
-			vocab2index[elem] = i
-			i+=1
+		index = 0
+		for word in self.vocab:
+			vocab2index[word] = index
+			index += 1
 
+		# change each word in dataset to its index
 		for i in range(0, len(self.dataset)):
-			tmp = []
-			for elem in self.dataset[i][0]:
-				tmp.append(vocab2index[elem])
-			self.dataset[i] = (torch.FloatTensor(tmp), self.dataset[i][1], self.dataset[i][2])
+			indexedDataEntry = []
+			for dataEntry in self.dataset[i][0]:
+				indexedDataEntry.append(vocab2index[dataEntry])
+
+			# store indexed data entry in datase
+			self.dataset[i] = (torch.FloatTensor(indexedDataEntry), self.dataset[i][1], self.dataset[i][2])
 
 
 	def __len__(self):
@@ -119,7 +141,7 @@ def validation_metrics(model, valid_dl,lS):
 
 vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
 train = VoynichDataset()
-lS = train.labelSet
+lS = train.labelList
 trainD, valD = torch.utils.data.random_split(train, [127, 100])
 dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
 val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
