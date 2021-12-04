@@ -138,8 +138,8 @@ def flat_accuracy(preds, labels):
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
 def Bert():
-  kcount = 10
-  kf = KFold(n_splits=2)
+  kcount = 1
+  kf = KFold(n_splits=10)
   val_accs = []
   lines = []
   labelNums = {}
