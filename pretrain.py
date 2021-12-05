@@ -131,7 +131,7 @@ if not truncate_longer_samples:
 
 # initialize the model with the config
 model_config = BertConfig(vocab_size=vocab_size, max_position_embeddings=max_length)
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+model = BertForMaskedLM(config=model_config)
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=True, mlm_probability=0.2
@@ -144,7 +144,7 @@ training_args = TrainingArguments(
     num_train_epochs=1,            # number of training epochs, feel free to tweak
     per_device_train_batch_size=10, # the training batch size, put it as high as your GPU memory fits
     gradient_accumulation_steps=8,  # accumulating the gradients before updating the weights
-    per_device_eval_batch_size=64,  # evaluation batch size
+    per_device_eval_batch_size=10,  # evaluation batch size
     logging_steps=10,             # evaluate, log and save model checkpoints every 1000 step
     save_steps=500,
     # load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
