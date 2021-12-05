@@ -79,7 +79,7 @@ with open(os.path.join(model_path, "config.json"), "w") as f:
 
 # when the tokenizer is trained and configured, load it as BertTokenizerFast
 tokenizer = XLMRobertaTokenizerFast.from_pretrained('xlm-roberta-base')
-model = XLMRobertaForMaskedLM.from_pretrained('xlm-roberta-base')
+model = XLMRobertaForMaskedLM.from_pretrained('bert-pretrained/checkpoint-1000')
 
 n = tokenizer.add_tokens(list(vocab))
 print("added "+str(n)+"tokens")
