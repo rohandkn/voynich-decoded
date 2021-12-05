@@ -222,7 +222,7 @@ def Bert():
       'weight_decay_rate': 0.0}
     ]
 
-    optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
 
     train_loss_set = []
     epochs = 0
@@ -274,21 +274,14 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     val_accs.append(eval_accuracy/nb_eval_steps)
 
-  # define a prediction function
-  def f(x):
-      tv = torch.tensor([tokenizer.encode(v, padding='max_length', max_length=500, truncation=True) for v in x]).cuda()
-      outputs = model(tv)[0].detach().cpu().numpy()
-      scores = (np.exp(outputs).T / np.exp(outputs).sum(-1)).T
-      val = sp.special.logit(scores[:,1]) # use one vs rest logit units
-      return val
-
-  # build an explainer using a token masker
-  explainer = shap.Explainer(f, tokenizer)
-
-  # explain the model's predictions on IMDB reviews
-  imdb_train = validation_dataloader[0]
-  shap_values = explainer(imdb_train[:10], fixed_context=1)
-  print(shap_values)
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  prediction = pipe([lines[0]])
+  explainer = shap.Explainer(pipe)
+  shap_values = explainer([lines[0]])
+  shap_html = shap.plots.text(shap_values[0], display=False)
+  html_file = open("shap_output.html", "w")
+  html_file.write(shap_html)
+  html_file.close()
 
   return val_accs
 
