@@ -22,4 +22,4 @@ for page in vm.pages:
 
 with open('full.txt', 'a') as full:
 	for line in lines:
-		train.write(line+"\n")
+		full.write(line+"\n")
