@@ -2,11 +2,137 @@ from voynich import VoynichManuscript
 import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, TensorDataset, RandomSampler, SequentialSampler
 from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
 from sklearn.metrics import classification_report
 import numpy as np
+from keras.preprocessing.sequence import pad_sequences
+from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
+from sklearn.model_selection import train_test_split
+from tqdm import trange
 
+class VoynichDataset(Dataset):
+	"""Custom dataset."""
+
+	def tokenizeLine(self, lineText):
+		return lineText.split('.')
+
+	def __init__(self):
+		"""
+		Args:
+		csv_file (string): Path to the csv file with annotations.
+		root_dir (string): Directory with all the images.
+		transform (callable, optional): Optional transform to be applied
+		on a sample.
+		"""
+		self.vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
+		self.dataset = []
+		self.vocab = set()
+		self.labelSet = [""]*6
+		labelList = {}
+		for page in self.vm.pages:
+			concatLines = []
+			for line in self.vm.pages[page]:
+				concatLines += self.tokenizeLine(line.text)
+			if self.vm.pages[page].section not in labelList:
+				self.labelSet[len(labelList)] = self.vm.pages[page].section
+				labelList[self.vm.pages[page].section] = len(labelList)
+			if len(concatLines) > 0:
+				self.dataset.append(((concatLines), labelList[self.vm.pages[page].section], len(concatLines)))
+
+			self.vocab = self.vocab.union(set(concatLines))
+		print(self.labelSet)
+		vocab2index = {}
+		i = 0
+		for elem in self.vocab:
+			vocab2index[elem] = i
+			i+=1
+
+		for i in range(0, len(self.dataset)):
+			tmp = []
+			for elem in self.dataset[i][0]:
+				tmp.append(vocab2index[elem])
+			self.dataset[i] = (torch.FloatTensor(tmp), self.dataset[i][1], self.dataset[i][2])
+
+
+	def __len__(self):
+		return len(self.dataset)
+
+	def __getitem__(self, idx):
+		return self.dataset[idx]
+
+class LSTM(nn.Module):
+	def __init__(self, vocab_len, embed_len, hidden_len):
+		super(LSTM, self).__init__()
+		self.embedding = nn.Embedding(vocab_len, embed_len, padding_idx=0)
+		self.lstm = nn.LSTM(input_size=embed_len, hidden_size=hidden_len, num_layers=1, batch_first=True, bidirectional=True)
+		self.dropout = nn.Dropout(0.3)
+		self.linear = nn.Linear(hidden_len, 6)
+		self.hidden_len = hidden_len
+	def forward(self, x, x_len):
+		out = self.embedding(x)
+		out = self.dropout(out)
+		out = pack_padded_sequence(out, x_len, batch_first=True, enforce_sorted=False)
+		a, (out, b) = self.lstm(out)
+		out = self.linear(out[-1])
+		return out
+
+def train_model(model, train_dl, epochs, lr, val_dl,lS):
+	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+	for i in range(epochs):
+		model.train()
+		sum_loss = 0.0
+		total = 0
+		print("STARTING EPOCH "+str(i))
+		for x, y, l in train_dl:
+			x = x.long()
+			y = y.long()
+			y_pred = model(x, l)
+			optimizer.zero_grad()
+			loss = nn.functional.cross_entropy(y_pred, y)
+			loss.backward()
+			optimizer.step()
+			sum_loss += loss.item()*y.shape[0]
+			total += y.shape[0]
+		val_loss, val_acc = validation_metrics(model, val_dl,lS)
+		if i % 1 == 0:
+			print("train loss %.3f, val loss %.3f, val accuracy %.3f" % (sum_loss/total, val_loss, val_acc))
+
+
+def validation_metrics(model, valid_dl,lS):
+	model.eval()
+	correct = 0
+	total = 0
+	sum_loss = 0.0
+	sum_rmse = 0.0
+	predList = []
+	yList = []
+	for x, y, l in valid_dl:
+		x = x.long()
+		y = y.long()
+		y_hat = model(x, l)
+		loss = nn.functional.cross_entropy(y_hat, y)
+		pred = torch.max(y_hat, 1)[1]
+		correct += (pred == y).float().sum()
+		predList.append(pred)
+		yList.append(y)
+		total += y.shape[0]
+		sum_loss += loss.item()*y.shape[0]
+	print(classification_report(yList, predList, target_names=lS))
+	return sum_loss/total, correct/total
+
+#vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
+#train = VoynichDataset()
+#lS = train.labelSet
+#trainD, valD = torch.utils.data.random_split(train, [127, 100])
+#dataloader = DataLoader(trainD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+#val_dl1 = DataLoader(valD, batch_size=1, shuffle=True, num_workers=1, drop_last=False)
+
+#l = LSTM(len(train.vocab), 300, 20)
+#print(validation_metrics(l, val_dl1, lS))
+#train_model(l, dataloader, 10, .01, val_dl1, lS)
+
+#print(validation_metrics(l, val_dl))
 
 # https://towardsdatascience.com/bert-for-dummies-step-by-step-tutorial-fb90890ffe03
 def flat_accuracy(preds, labels):
@@ -14,7 +140,37 @@ def flat_accuracy(preds, labels):
 	labels_flat = labels.flatten()
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
-def Bert(input_ids, labels):
+def Bert():
+	lines = []
+	labelNums = {}
+	labelCount = 0
+	labels = []
+	vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
+	for page in vm.pages:
+		if vm.pages[page].section in labelNums:
+			section_label = labelNums[vm.pages[page].section]
+		else:
+			section_label = labelCount
+			labelNums[vm.pages[page].section] = labelCount
+			labelCount += 1
+		for line in vm.pages[page]:
+			lines.append("[CLS]" + line.text.replace(".", " ") + "[SEP]")
+			labels.append(section_label)
+
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	n_gpu = torch.cuda.device_count()
+	#torch.cuda.get_device_name(0)
+
+	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+	tokenized_texts = [tokenizer.tokenize(line) for line in lines]
+
+	MAX_LEN = 128
+	input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
+		                       maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+	input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
+	input_ids = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+
+
 	attention_masks = []
 	for seq in input_ids:
 		seq_mask = [float(i>0) for i in seq]
@@ -32,15 +188,15 @@ def Bert(input_ids, labels):
 
 	batch_size = 32
 
-	train_data = TensorDataset(trainD, train_masks, train_labels)
+	train_data = TensorDataset(train_inputs, train_masks, train_labels)
 	train_sampler = RandomSampler(train_data)
 	train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
 	validation_data = TensorDataset(validation_inputs, validation_masks, validation_labels)
 	validation_sampler = SequentialSampler(validation_data)
 	validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
 
-	model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=nb_labels)
-	model.cuda()
+	model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+	model.to(device)
 
 	param_optimizer = list(model.named_parameters())
 	no_decay = ['bias', 'gamma', 'beta']
@@ -102,7 +258,7 @@ def Bert(input_ids, labels):
 			nb_eval_steps += 1
 		print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
 
-
+Bert()
 
 
 
