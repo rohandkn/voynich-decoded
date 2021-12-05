@@ -18,9 +18,13 @@ from torchtext.legacy.data import Field, TabularDataset, BucketIterator
 from sklearn.metrics import classification_report
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
-from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
+import transformers
+from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
+from transformers import AdamW
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+import shap
+
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
@@ -161,7 +165,7 @@ def Bert():
   n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
-  tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+  tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
   tokenized_texts = [tokenizer.tokenize(line) for line in lines]
 
   MAX_LEN = 128
@@ -206,7 +210,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
 
-    model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+    model = XLMRobertaForSequenceClassification.from_pretrained("xlm-roberta-base", num_labels=6)
     model.to(device)
 
     param_optimizer = list(model.named_parameters())
@@ -218,10 +222,10 @@ def Bert():
       'weight_decay_rate': 0.0}
     ]
 
-    optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
 
     train_loss_set = []
-    epochs = 4
+    epochs = 0
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -269,6 +273,23 @@ def Bert():
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     val_accs.append(eval_accuracy/nb_eval_steps)
+
+  # define a prediction function
+  def f(x):
+      tv = torch.tensor([tokenizer.encode(v, padding='max_length', max_length=500, truncation=True) for v in x]).cuda()
+      outputs = model(tv)[0].detach().cpu().numpy()
+      scores = (np.exp(outputs).T / np.exp(outputs).sum(-1)).T
+      val = sp.special.logit(scores[:,1]) # use one vs rest logit units
+      return val
+
+  # build an explainer using a token masker
+  explainer = shap.Explainer(f, tokenizer)
+
+  # explain the model's predictions on IMDB reviews
+  imdb_train = validation_dataloader[0]
+  shap_values = explainer(imdb_train[:10], fixed_context=1)
+  print(shap_values)
+
   return val_accs
 
 valacc = Bert()
