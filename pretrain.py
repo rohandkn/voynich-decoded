@@ -75,7 +75,8 @@ with open(os.path.join(model_path, "config.json"), "w") as f:
   json.dump(tokenizer_cfg, f)
 
 # when the tokenizer is trained and configured, load it as BertTokenizerFast
-tokenizer = BertTokenizerFast.from_pretrained(model_path)
+tokenizer = XLMRobertaTokenizerFast.from_pretrained('xlm-roberta-base')
+model = XLMRobertaForMaskedLM.from_pretrained('xlm-roberta-base')
 
 def encode_with_truncation(examples):
   """Mapping function to tokenize the sentences passed with truncation"""
@@ -131,7 +132,6 @@ if not truncate_longer_samples:
 
 # initialize the model with the config
 model_config = BertConfig(vocab_size=vocab_size, max_position_embeddings=max_length)
-model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=True, mlm_probability=0.2
@@ -141,12 +141,12 @@ training_args = TrainingArguments(
     output_dir=model_path,          # output directory to where save model checkpoint
     evaluation_strategy="steps",    # evaluate each `logging_steps` steps
     overwrite_output_dir=True,      
-    num_train_epochs=1,            # number of training epochs, feel free to tweak
-    per_device_train_batch_size=10, # the training batch size, put it as high as your GPU memory fits
+    num_train_epochs=100,            # number of training epochs, feel free to tweak
+    per_device_train_batch_size=3, # the training batch size, put it as high as your GPU memory fits
     gradient_accumulation_steps=8,  # accumulating the gradients before updating the weights
-    per_device_eval_batch_size=10,  # evaluation batch size
-    logging_steps=10,             # evaluate, log and save model checkpoints every 1000 step
-    save_steps=500,
+    per_device_eval_batch_size=3,  # evaluation batch size
+    logging_steps=500,             # evaluate, log and save model checkpoints every 1000 step
+    save_steps=1000,
     # load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
     # save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
 )
