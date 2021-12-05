@@ -141,7 +141,6 @@ def group_texts(examples):
 # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
 # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map
 # initialize the model with the config
-model_config = BertConfig(vocab_size=vocab_size, max_position_embeddings=max_length)
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=True, mlm_probability=0.2
