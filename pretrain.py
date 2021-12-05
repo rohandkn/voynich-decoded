@@ -5,7 +5,8 @@ import os
 import json
 
 # download and prepare cc_news dataset
-dataset = load_dataset("cc_news", split="train")
+dataset = load_dataset("text", data_files=["full.txt"], split="train")
+
 
 # split the dataset into training (90%) and testing (10%)
 d = dataset.train_test_split(test_size=0.1)
