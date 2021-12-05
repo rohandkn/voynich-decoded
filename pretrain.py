@@ -131,7 +131,7 @@ if not truncate_longer_samples:
 
 # initialize the model with the config
 model_config = BertConfig(vocab_size=vocab_size, max_position_embeddings=max_length)
-model = BertForMaskedLM(config=model_config)
+model = BertForMaskedLM.from_pretrained('bert-base-uncased')
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=True, mlm_probability=0.2
