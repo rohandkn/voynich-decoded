@@ -82,8 +82,11 @@ tokenizer = XLMRobertaTokenizerFast.from_pretrained('xlm-roberta-base')
 model = XLMRobertaForMaskedLM.from_pretrained('xlm-roberta-base')
 
 n = tokenizer.add_tokens(list(vocab))
-print("added "+str(n)+" tokens")
+print("added "+str(n)+"tokens")
 model.resize_token_embeddings(len(tokenizer))
+
+
+
 
 def encode_with_truncation(examples):
   """Mapping function to tokenize the sentences passed with truncation"""
@@ -94,29 +97,20 @@ def encode_without_truncation(examples):
   return tokenizer(examples["text"], return_special_tokens_mask=True)
 
 # the encode function will depend on the truncate_longer_samples variable
-tokenized_texts = [tokenizer.tokenize(line) for line in d["train"]]
-
-MAX_LEN = 128
-input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
-                          maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
-input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
-input_ids = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
-train_dataset = input_ids
-
-# the encode function will depend on the truncate_longer_samples variable
-tokenized_texts = [tokenizer.tokenize(line) for line in d["test"]]
-
-MAX_LEN = 128
-input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
-                          maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
-input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
-input_ids = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+encode = encode_with_truncation if truncate_longer_samples else encode_without_truncation
 
 # tokenizing the train dataset
-
-
+train_dataset = d["train"].map(encode, batched=True)
 # tokenizing the testing dataset
-test_dataset = input_ids
+test_dataset = d["test"].map(encode, batched=True)
+if truncate_longer_samples:
+  # remove other columns and set input_ids and attention_mask as 
+  train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
+  test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask"])
+else:
+  test_dataset.set_format(columns=["input_ids", "attention_mask", "special_tokens_mask"])
+  train_dataset.set_format(columns=["input_ids", "attention_mask", "special_tokens_mask"])
+train_dataset, test_dataset
 
 # Main data processing function that will concatenate all texts from our dataset and generate chunks of
 # max_seq_length.
@@ -140,7 +134,14 @@ def group_texts(examples):
 #
 # To speed up this part, we use multiprocessing. See the documentation of the map method for more information:
 # https://huggingface.co/docs/datasets/package_reference/main_classes.html#datasets.Dataset.map
+if not truncate_longer_samples:
+  train_dataset = train_dataset.map(group_texts, batched=True, batch_size=2_000,
+                                    desc=f"Grouping texts in chunks of {max_length}")
+  test_dataset = test_dataset.map(group_texts, batched=True, batch_size=2_000,
+                                  num_proc=4, desc=f"Grouping texts in chunks of {max_length}")
+
 # initialize the model with the config
+model_config = BertConfig(vocab_size=vocab_size, max_position_embeddings=max_length)
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer, mlm=True, mlm_probability=0.2
