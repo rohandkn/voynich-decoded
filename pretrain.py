@@ -3,6 +3,16 @@ from transformers import *
 from tokenizers import *
 import os
 import json
+from voynich import VoynichManuscript
+
+vocab = set()
+
+vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
+for page in vm.pages:
+  for line in vm.pages[page]:
+    for word in line.text.split("."):
+      vocab.add(word)
+    
 
 # download and prepare cc_news dataset
 dataset = load_dataset("text", data_files=["full.txt"], split="train")
@@ -45,12 +55,6 @@ max_length = 512
 truncate_longer_samples = True
 
 # initialize the WordPiece tokenizer
-tokenizer = BertWordPieceTokenizer()
-# train the tokenizer
-tokenizer.train(files=files, vocab_size=vocab_size, special_tokens=special_tokens)
-# enable truncation up to the maximum 512 tokens
-tokenizer.enable_truncation(max_length=max_length)
-
 model_path = "pretrained-bert"
 
 
@@ -58,7 +62,6 @@ model_path = "pretrained-bert"
 if not os.path.isdir(model_path):
   os.mkdir(model_path)
 # save the tokenizer  
-tokenizer.save_model(model_path)
 # dumping some of the tokenizer config to config file, 
 # including special tokens, whether to lower case and the maximum sequence length
 with open(os.path.join(model_path, "config.json"), "w") as f:
@@ -77,6 +80,10 @@ with open(os.path.join(model_path, "config.json"), "w") as f:
 # when the tokenizer is trained and configured, load it as BertTokenizerFast
 tokenizer = XLMRobertaTokenizerFast.from_pretrained('xlm-roberta-base')
 model = XLMRobertaForMaskedLM.from_pretrained('xlm-roberta-base')
+
+n = tokenizer.add_tokens(list(vocab))
+print("added "+str(n)+" tokens")
+model.resize_token_embeddings(len(tokenizer))
 
 def encode_with_truncation(examples):
   """Mapping function to tokenize the sentences passed with truncation"""
