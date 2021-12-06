@@ -254,16 +254,16 @@ def Bert():
 
   return val_accs
 
-#valacc = Bert()
+valacc = Bert()
 
-shap_get_sum(54, 2)
-shap_get_max(54, 2)
+#shap_get_sum(54, 2)
+#shap_get_max(54, 2)
 
-shap_get_sum(54, 3)
-shap_get_max(54, 3)
+#shap_get_sum(54, 3)
+#shap_get_max(54, 3)
 
-shap_get_sum(54, 4)
-shap_get_max(54, 4)
+#shap_get_sum(54, 4)
+#shap_get_max(54, 4)
 
 #print("Num Lines: " + str(len(lines[::100])))
 
