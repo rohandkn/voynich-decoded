@@ -174,8 +174,8 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
 
-    #model = XLMRobertaForSequenceClassification.from_pretrained("xlm-roberta-base", num_labels=6)
-    model = torch.load("roberta-1/checkpoint-4000/pytorch_model.bin")
+    model = XLMRobertaForSequenceClassification.from_pretrained("roberta-1", num_labels=6)
+    #model = torch.load("roberta-1/checkpoint-4000/pytorch_model.bin")
     model.to(device)
 
     param_optimizer = list(model.named_parameters())
