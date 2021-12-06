@@ -245,18 +245,18 @@ def Bert():
 
     model.to('cpu')
     pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-    prediction = pipe(lines[::100])
+    prediction = pipe(lines)
     explainer = shap.Explainer(pipe)
-    shap_values = explainer(lines[::100])
+    shap_values = explainer(lines)
     np.save("shap_values_values" + str(kcount) + ".npy", shap_values.values)
     np.save("shap_values_data" + str(kcount) + ".npy", shap_values.data)
 
   return val_accs
 
-#valacc = Bert()
+valacc = Bert()
 
-shap_get_sum(54, 2)
-shap_get_max(54, 2)
+#shap_get_sum(54, 2)
+#shap_get_max(54, 2)
 
 #shap_get_sum(54, 3)
 #shap_get_max(54, 3)
