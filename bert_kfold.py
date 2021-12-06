@@ -25,6 +25,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import trange
 import shap
 from sklearn.model_selection import KFold
+import pdb
 
 def flat_accuracy(preds, labels):
 	pred_flat = np.argmax(preds, axis=1).flatten()
@@ -34,6 +35,7 @@ def flat_accuracy(preds, labels):
 def shap_get_sum(line_count, fold):
   shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
   shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
+  pdb.set_trace()
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
