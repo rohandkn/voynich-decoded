@@ -31,9 +31,9 @@ def flat_accuracy(preds, labels):
 	labels_flat = labels.flatten()
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
-def shap_get_sum(line_count):
-  shap_values_data = np.load("shap_values_data.npy")
-  shap_values_values = np.load("shap_values_values.npy")
+def shap_get_sum(line_count, fold):
+  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy")
+  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy")
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
@@ -69,11 +69,11 @@ def shap_get_sum(line_count):
                 shap_total_vals[6][curr_string] = 1
         curr_string = ""
         shap_weights = np.zeros(6)
-  np.save("shap_sum.npy", shap_total_vals)
+  np.save("shap_sum" + str(fold) + ".npy", shap_total_vals)
 
-def shap_get_max(line_count):
-  shap_values_data = np.load("shap_values_data.npy")
-  shap_values_values = np.load("shap_values_values.npy")
+def shap_get_max(line_count, fold):
+  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy")
+  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy")
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
@@ -103,7 +103,7 @@ def shap_get_max(line_count):
               shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
         curr_string = ""
         shap_weights = np.zeros(6)
-  np.save("shap_max.npy", shap_total_vals)
+  np.save("shap_max" + str(fold) + ".npy", shap_total_vals)
 
 def Bert():
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -250,8 +250,17 @@ def Bert():
 
   return val_accs
 
-valacc = Bert()
+#valacc = Bert()
 
-print("Num Lines: " + str(len(lines[::100])))
+shap_get_sum(54, 2)
+shap_get_max(54, 2)
 
-print(sum(valacc)/len(valacc))
+shap_get_sum(54, 3)
+shap_get_max(54, 3)
+
+shap_get_sum(54, 4)
+shap_get_max(54, 4)
+
+#print("Num Lines: " + str(len(lines[::100])))
+
+#print(sum(valacc)/len(valacc))
