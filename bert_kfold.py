@@ -250,7 +250,7 @@ def Bert():
     explainer = shap.Explainer(pipe)
     shap_values = explainer(lines[::100])
     np.save("shap_values_values" + str(kcount) + ".npy", shap_values.values)
-    np.save("shap_values_data" + str(kcount) + ".npy", shap_values.data[0])
+    np.save("shap_values_data" + str(kcount) + ".npy", shap_values.data)
 
   return val_accs
 
