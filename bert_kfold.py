@@ -240,6 +240,7 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
       val_accs.append(eval_accuracy/nb_eval_steps)
 
+    model.to('cpu')
     pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
     prediction = pipe(lines)
     explainer = shap.Explainer(pipe)
