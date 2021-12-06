@@ -32,8 +32,8 @@ def flat_accuracy(preds, labels):
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
 def shap_get_sum(line_count, fold):
-  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy")
-  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy")
+  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
+  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
@@ -70,10 +70,11 @@ def shap_get_sum(line_count, fold):
         curr_string = ""
         shap_weights = np.zeros(6)
   np.save("shap_sum" + str(fold) + ".npy", shap_total_vals)
+  print("Saved to " + "shap_sum" + str(fold) + ".npy")
 
 def shap_get_max(line_count, fold):
-  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy")
-  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy")
+  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
+  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
@@ -104,6 +105,7 @@ def shap_get_max(line_count, fold):
         curr_string = ""
         shap_weights = np.zeros(6)
   np.save("shap_max" + str(fold) + ".npy", shap_total_vals)
+  print("Saved to " + "shap_max" + str(fold) + ".npy")
 
 def Bert():
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
