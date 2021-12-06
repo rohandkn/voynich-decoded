@@ -20,7 +20,7 @@ import numpy as np
 from keras.preprocessing.sequence import pad_sequences
 import transformers
 from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
-from transformers import AdamW
+from transformers import AdamW, TextClassificationPipeline
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 import shap
