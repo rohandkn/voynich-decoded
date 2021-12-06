@@ -106,6 +106,9 @@ def shap_get_max(line_count):
   np.save("shap_max.npy", shap_total_vals)
 
 def Bert():
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  n_gpu = torch.cuda.device_count()
+
   kcount = 1
   kf = KFold(n_splits=10)
   val_accs = []
@@ -125,8 +128,6 @@ def Bert():
       lines.append("[CLS]" + line.text.replace(".", " ") + "[SEP]")
       labels.append(section_label)
 
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
   tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
