@@ -24,122 +24,85 @@ from transformers import AdamW
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 import shap
-
-
-class VoynichDataset(Dataset):
-	"""Custom dataset."""
-
-	def tokenizeLine(self, lineText):
-		return lineText.split('.')
-
-	def __init__(self):
-		"""
-		Args:
-		csv_file (string): Path to the csv file with annotations.
-		root_dir (string): Directory with all the images.
-		transform (callable, optional): Optional transform to be applied
-		on a sample.
-		"""
-		self.vm = VoynichManuscript("voynich-text.txt", inline_comments=False)
-		self.dataset = []
-		self.vocab = set()
-		self.labelSet = [""]*6
-		labelList = {}
-		for page in self.vm.pages:
-			concatLines = []
-			for line in self.vm.pages[page]:
-				concatLines += self.tokenizeLine(line.text)
-			if self.vm.pages[page].section not in labelList:
-				self.labelSet[len(labelList)] = self.vm.pages[page].section
-				labelList[self.vm.pages[page].section] = len(labelList)
-			if len(concatLines) > 0:
-				self.dataset.append(((concatLines), labelList[self.vm.pages[page].section], len(concatLines)))
-
-			self.vocab = self.vocab.union(set(concatLines))
-		print(self.labelSet)
-		vocab2index = {}
-		i = 0
-		for elem in self.vocab:
-			vocab2index[elem] = i
-			i+=1
-
-		for i in range(0, len(self.dataset)):
-			tmp = []
-			for elem in self.dataset[i][0]:
-				tmp.append(vocab2index[elem])
-			self.dataset[i] = (torch.FloatTensor(tmp), self.dataset[i][1], self.dataset[i][2])
-
-
-	def __len__(self):
-		return len(self.dataset)
-
-	def __getitem__(self, idx):
-		return self.dataset[idx]
-
-class LSTM(nn.Module):
-	def __init__(self, vocab_len, embed_len, hidden_len):
-		super(LSTM, self).__init__()
-		self.embedding = nn.Embedding(vocab_len, embed_len, padding_idx=0)
-		self.lstm = nn.LSTM(input_size=embed_len, hidden_size=hidden_len, num_layers=1, batch_first=True, bidirectional=True)
-		self.dropout = nn.Dropout(0.3)
-		self.linear = nn.Linear(hidden_len, 6)
-		self.hidden_len = hidden_len
-	def forward(self, x, x_len):
-		out = self.embedding(x)
-		out = self.dropout(out)
-		out = pack_padded_sequence(out, x_len, batch_first=True, enforce_sorted=False)
-		a, (out, b) = self.lstm(out)
-		out = self.linear(out[-1])
-		return out
-
-def train_model(model, train_dl, epochs, lr, val_dl,lS):
-	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-	for i in range(epochs):
-		model.train()
-		sum_loss = 0.0
-		total = 0
-		print("STARTING EPOCH "+str(i))
-		for x, y, l in train_dl:
-			x = x.long()
-			y = y.long()
-			y_pred = model(x, l)
-			optimizer.zero_grad()
-			loss = nn.functional.cross_entropy(y_pred, y)
-			loss.backward()
-			optimizer.step()
-			sum_loss += loss.item()*y.shape[0]
-			total += y.shape[0]
-		val_loss, val_acc = validation_metrics(model, val_dl,lS)
-		if i % 1 == 0:
-			print("train loss %.3f, val loss %.3f, val accuracy %.3f" % (sum_loss/total, val_loss, val_acc))
-
-def validation_metrics(model, valid_dl,lS):
-	model.eval()
-	correct = 0
-	total = 0
-	sum_loss = 0.0
-	sum_rmse = 0.0
-	predList = []
-	yList = []
-	for x, y, l in valid_dl:
-		x = x.long()
-		y = y.long()
-		y_hat = model(x, l)
-		loss = nn.functional.cross_entropy(y_hat, y)
-		pred = torch.max(y_hat, 1)[1]
-		correct += (pred == y).float().sum()
-		predList.append(pred)
-		yList.append(y)
-		total += y.shape[0]
-		sum_loss += loss.item()*y.shape[0]
-	print(classification_report(yList, predList, target_names=lS))
-	return sum_loss/total, correct/total
-
 from sklearn.model_selection import KFold
+
 def flat_accuracy(preds, labels):
 	pred_flat = np.argmax(preds, axis=1).flatten()
 	labels_flat = labels.flatten()
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
+
+def shap_get_sum(line_count):
+  shap_values_data = np.load("shap_values_data.npy")
+  shap_values_values = np.load("shap_values_values.npy")
+  shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
+  for i in range(line_count):
+    curr_string = ""
+    shap_weights = np.zeros(6)
+    for j in range(len(shap_values_data[i])):
+      if shap_values_data[i][j].strip(' ').isalpha():
+        if shap_values_data[i][j][0] == ' ':
+          if len(curr_string) > 0:
+            for k in range(6):
+              if curr_string in shap_total_vals[k]:
+                shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
+                if j == 0:
+                  shap_total_vals[6][curr_string] += 1
+              else:
+                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+                if j == 0:
+                  shap_total_vals[6][curr_string] = 1
+          curr_string = shap_values_data[i][j][1:]
+          shap_weights = np.abs(shap_values_values[i][j])
+        else:
+          curr_string += shap_values_data[i][j]
+          shap_weights += np.abs(shap_values_values[i][j])
+      else:
+        if len(curr_string) > 0:
+          for k in range(6):
+            if curr_string in shap_total_vals[k]:
+              shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
+              if j == 0:
+                shap_total_vals[6][curr_string] += 1
+            else:
+              shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+              if j == 0:
+                shap_total_vals[6][curr_string] = 1
+        curr_string = ""
+        shap_weights = np.zeros(6)
+  np.save("shap_sum.npy", shap_total_vals)
+
+def shap_get_max(line_count):
+  shap_values_data = np.load("shap_values_data.npy")
+  shap_values_values = np.load("shap_values_values.npy")
+  shap_total_vals = np.array([{}, {}, {}, {}, {}, {}])
+  for i in range(line_count):
+    curr_string = ""
+    shap_weights = np.zeros(6)
+    for j in range(len(shap_values_data[i])):
+      if shap_values_data[i][j].strip(' ').isalpha():
+        if shap_values_data[i][j][0] == ' ':
+          if len(curr_string) > 0:
+            for k in range(6):
+              if curr_string in shap_total_vals[k]:
+                if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]
+                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+              else:
+                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+          curr_string = shap_values_data[i][j][1:]
+          shap_weights = np.abs(shap_values_values[i][j])
+        else:
+          curr_string += shap_values_data[i][j]
+          shap_weights += np.abs(shap_values_values[i][j])
+      else:
+        if len(curr_string) > 0:
+          for k in range(6):
+            if curr_string in shap_total_vals[k]:
+              shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
+            else:
+              shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+        curr_string = ""
+        shap_weights = np.zeros(6)
+  np.save("shap_max.npy", shap_total_vals)
 
 def Bert():
   kcount = 1
@@ -275,13 +238,11 @@ def Bert():
     val_accs.append(eval_accuracy/nb_eval_steps)
 
   pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  prediction = pipe([lines[0]])
+  prediction = pipe(lines)
   explainer = shap.Explainer(pipe)
-  shap_values = explainer([lines[0]])
-  shap_html = shap.plots.text(shap_values[0], display=False)
-  html_file = open("shap_output.html", "w")
-  html_file.write(shap_html)
-  html_file.close()
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data[0])
 
   return val_accs
 
