@@ -243,13 +243,13 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
       val_accs.append(eval_accuracy/nb_eval_steps)
 
-    model.to('cpu')
-    pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-    prediction = pipe(lines)
-    explainer = shap.Explainer(pipe)
-    shap_values = explainer(lines)
-    np.save("shap_values_values" + str(kcount) + ".npy", shap_values.values)
-    np.save("shap_values_data" + str(kcount) + ".npy", shap_values.data)
+  model.to('cpu')
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  prediction = pipe(lines)
+  explainer = shap.Explainer(pipe)
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data)
 
   return val_accs
 
