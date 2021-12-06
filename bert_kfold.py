@@ -35,7 +35,6 @@ def flat_accuracy(preds, labels):
 def shap_get_sum(line_count, fold):
   shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
   shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
-  pdb.set_trace()
   shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
   for i in range(line_count):
     curr_string = ""
@@ -47,11 +46,11 @@ def shap_get_sum(line_count, fold):
             for k in range(6):
               if curr_string in shap_total_vals[k]:
                 shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
-                if j == 0:
+                if k == 0:
                   shap_total_vals[6][curr_string] += 1
               else:
                 shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-                if j == 0:
+                if k == 0:
                   shap_total_vals[6][curr_string] = 1
           curr_string = shap_values_data[i][j][1:]
           shap_weights = np.abs(shap_values_values[i][j])
@@ -63,11 +62,11 @@ def shap_get_sum(line_count, fold):
           for k in range(6):
             if curr_string in shap_total_vals[k]:
               shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
-              if j == 0:
+              if k == 0:
                 shap_total_vals[6][curr_string] += 1
             else:
               shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-              if j == 0:
+              if k == 0:
                 shap_total_vals[6][curr_string] = 1
         curr_string = ""
         shap_weights = np.zeros(6)
