@@ -84,8 +84,8 @@ def shap_get_max(line_count):
           if len(curr_string) > 0:
             for k in range(6):
               if curr_string in shap_total_vals[k]:
-                if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]
-                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
+                if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]:
+                  shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
               else:
                 shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
           curr_string = shap_values_data[i][j][1:]
@@ -97,7 +97,8 @@ def shap_get_max(line_count):
         if len(curr_string) > 0:
           for k in range(6):
             if curr_string in shap_total_vals[k]:
-              shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
+              if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]:
+                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
             else:
               shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
         curr_string = ""
