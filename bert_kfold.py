@@ -236,6 +236,15 @@ def Bert():
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     val_accs.append(eval_accuracy/nb_eval_steps)
+    print(sum(valacc)/len(valacc))
+
+  model.to('cpu')
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  prediction = pipe(lines)
+  explainer = shap.Explainer(pipe)
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data)
   return val_accs
 
 valacc = Bert()
@@ -253,13 +262,3 @@ print(sum(valacc)/len(valacc))
 #shap_get_max(54, 4)
 
 #print("Num Lines: " + str(len(lines[::100])))
-
-print(sum(valacc)/len(valacc))
-
-model.to('cpu')
-pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-prediction = pipe(lines)
-explainer = shap.Explainer(pipe)
-shap_values = explainer(lines)
-np.save("shap_values_values.npy", shap_values.values)
-np.save("shap_values_data.npy", shap_values.data)
