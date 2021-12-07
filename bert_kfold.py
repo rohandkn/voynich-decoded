@@ -194,7 +194,7 @@ def Bert():
     optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
 
     train_loss_set = []
-    epochs = 0
+    epochs = 10
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -243,14 +243,6 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
       val_accs.append(eval_accuracy/nb_eval_steps)
 
-  model.to('cpu')
-  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  prediction = pipe(lines)
-  explainer = shap.Explainer(pipe)
-  shap_values = explainer(lines)
-  np.save("shap_values_values.npy", shap_values.values)
-  np.save("shap_values_data.npy", shap_values.data)
-
   return val_accs
 
 valacc = Bert()
@@ -266,4 +258,12 @@ valacc = Bert()
 
 #print("Num Lines: " + str(len(lines[::100])))
 
-#print(sum(valacc)/len(valacc))
+print(sum(valacc)/len(valacc))
+
+model.to('cpu')
+pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+prediction = pipe(lines)
+explainer = shap.Explainer(pipe)
+shap_values = explainer(lines)
+np.save("shap_values_values.npy", shap_values.values)
+np.save("shap_values_data.npy", shap_values.data)
