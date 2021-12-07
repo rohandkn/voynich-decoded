@@ -21,6 +21,7 @@ from keras.preprocessing.sequence import pad_sequences
 from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+from sklearn.model_selection import KFold
 
 def flat_accuracy(preds, labels):
 	pred_flat = np.argmax(preds, axis=1).flatten()
