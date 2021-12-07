@@ -200,7 +200,7 @@ def Bert():
     train_masks = torch.tensor(train_masks)
     validation_masks = torch.tensor(validation_masks)
 
-    batch_size = 32
+    batch_size = 16
 
     train_data = TensorDataset(train_inputs, train_masks, train_labels)
     train_sampler = RandomSampler(train_data)
