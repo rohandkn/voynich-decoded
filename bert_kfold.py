@@ -22,6 +22,7 @@ from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 from sklearn.metrics import classification_report
+from transformers import TextClassificationPipeline
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
