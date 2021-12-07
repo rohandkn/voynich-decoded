@@ -188,7 +188,7 @@ def Bert():
     optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
 
     train_loss_set = []
-    epochs = 10
+    epochs = 5
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
