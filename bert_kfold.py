@@ -18,100 +18,11 @@ from torchtext.legacy.data import Field, TabularDataset, BucketIterator
 from sklearn.metrics import classification_report
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
-import transformers
-from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
-from transformers import AdamW, TextClassificationPipeline
+from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
 from sklearn.model_selection import train_test_split
 from tqdm import trange
-import shap
-from sklearn.model_selection import KFold
-import pdb
-
-def flat_accuracy(preds, labels):
-	pred_flat = np.argmax(preds, axis=1).flatten()
-	labels_flat = labels.flatten()
-	return np.sum(pred_flat == labels_flat) / len(labels_flat)
-
-def shap_get_sum(line_count, fold):
-  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
-  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
-  shap_total_vals = np.array([{}, {}, {}, {}, {}, {}, {}])
-  for i in range(line_count):
-    curr_string = ""
-    shap_weights = np.zeros(6)
-    for j in range(len(shap_values_data[i])):
-      if shap_values_data[i][j].strip(' ').isalpha():
-        if shap_values_data[i][j][0] == ' ':
-          if len(curr_string) > 0:
-            for k in range(6):
-              if curr_string in shap_total_vals[k]:
-                shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
-                if k == 0:
-                  shap_total_vals[6][curr_string] += 1
-              else:
-                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-                if k == 0:
-                  shap_total_vals[6][curr_string] = 1
-          curr_string = shap_values_data[i][j][1:]
-          shap_weights = np.abs(shap_values_values[i][j])
-        else:
-          curr_string += shap_values_data[i][j]
-          shap_weights += np.abs(shap_values_values[i][j])
-      else:
-        if len(curr_string) > 0:
-          for k in range(6):
-            if curr_string in shap_total_vals[k]:
-              shap_total_vals[k][curr_string] += np.abs(shap_weights[k])
-              if k == 0:
-                shap_total_vals[6][curr_string] += 1
-            else:
-              shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-              if k == 0:
-                shap_total_vals[6][curr_string] = 1
-        curr_string = ""
-        shap_weights = np.zeros(6)
-  np.save("shap_sum" + str(fold) + ".npy", shap_total_vals)
-  print("Saved to " + "shap_sum" + str(fold) + ".npy")
-
-def shap_get_max(line_count, fold):
-  shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
-  shap_values_values = np.load("shap_values_values" + str(fold) + ".npy", allow_pickle=True)
-  shap_total_vals = np.array([{}, {}, {}, {}, {}, {}])
-  for i in range(line_count):
-    curr_string = ""
-    shap_weights = np.zeros(6)
-    for j in range(len(shap_values_data[i])):
-      if shap_values_data[i][j].strip(' ').isalpha():
-        if shap_values_data[i][j][0] == ' ':
-          if len(curr_string) > 0:
-            for k in range(6):
-              if curr_string in shap_total_vals[k]:
-                if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]:
-                  shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-              else:
-                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-          curr_string = shap_values_data[i][j][1:]
-          shap_weights = np.abs(shap_values_values[i][j])
-        else:
-          curr_string += shap_values_data[i][j]
-          shap_weights += np.abs(shap_values_values[i][j])
-      else:
-        if len(curr_string) > 0:
-          for k in range(6):
-            if curr_string in shap_total_vals[k]:
-              if np.abs(shap_weights[k]) > shap_total_vals[k][curr_string]:
-                shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-            else:
-              shap_total_vals[k][curr_string] = np.abs(shap_weights[k])
-        curr_string = ""
-        shap_weights = np.zeros(6)
-  np.save("shap_max" + str(fold) + ".npy", shap_total_vals)
-  print("Saved to " + "shap_max" + str(fold) + ".npy")
 
 def Bert():
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  n_gpu = torch.cuda.device_count()
-
   kcount = 1
   kf = KFold(n_splits=10)
   val_accs = []
@@ -131,9 +42,11 @@ def Bert():
       lines.append("[CLS]" + line.text.replace(".", " ") + "[SEP]")
       labels.append(section_label)
 
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
-  tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
+  tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
   tokenized_texts = [tokenizer.tokenize(line) for line in lines]
 
   MAX_LEN = 128
@@ -178,8 +91,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
 
-    model = XLMRobertaForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
-    #model = torch.load("roberta-1/checkpoint-4000/pytorch_model.bin")
+    model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
     model.to(device)
 
     param_optimizer = list(model.named_parameters())
@@ -191,7 +103,7 @@ def Bert():
       'weight_decay_rate': 0.0}
     ]
 
-    optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
+    optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
 
     train_loss_set = []
     epochs = 10
@@ -241,11 +153,13 @@ def Bert():
         eval_accuracy += tmp_eval_accuracy
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
-      val_accs.append(eval_accuracy/nb_eval_steps)
-
+    val_accs.append(eval_accuracy/nb_eval_steps)
   return val_accs
 
 valacc = Bert()
+
+print(sum(valacc)/len(valacc))
+
 
 #shap_get_sum(54, 2)
 #shap_get_max(54, 2)
