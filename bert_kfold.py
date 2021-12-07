@@ -21,6 +21,7 @@ from keras.preprocessing.sequence import pad_sequences
 from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+from sklearn.metrics import classification_report
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
@@ -204,9 +205,9 @@ def Bert():
     train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
     validation_data = TensorDataset(validation_inputs, validation_masks, validation_labels)
     validation_sampler = SequentialSampler(validation_data)
-    validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
+    validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=128)
 
-    model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+    model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
     model.to(device)
 
     param_optimizer = list(model.named_parameters())
@@ -221,7 +222,7 @@ def Bert():
     optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
 
     train_loss_set = []
-    epochs = 4
+    epochs = 5
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -263,12 +264,17 @@ def Bert():
           logits = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
 
         logits = logits.detach().cpu().numpy()
+        logits2 = np.argmax(logits, axis=1)
         label_ids = b_labels.to('cpu').numpy()
+        print(logits.shape)
+        print(label_ids.shape)
         tmp_eval_accuracy = flat_accuracy(logits, label_ids)
         eval_accuracy += tmp_eval_accuracy
         nb_eval_steps += 1
+        print(classification_report(label_ids,logits2))
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     val_accs.append(eval_accuracy/nb_eval_steps)
+  print(val_accs)
   return val_accs
 
 valacc = Bert()
