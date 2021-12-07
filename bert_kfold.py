@@ -128,7 +128,7 @@ def Bert():
   n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
-  tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+  tokenizer = BertTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
   tokenized_texts = [tokenizer.tokenize(line) for line in lines]
 
   MAX_LEN = 128
