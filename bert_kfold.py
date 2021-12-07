@@ -23,6 +23,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import trange
 from sklearn.metrics import classification_report
 from transformers import TextClassificationPipeline
+import shap
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
