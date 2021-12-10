@@ -161,8 +161,8 @@ def Bert():
 	  return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=128)
 
 	dataset = load_dataset("csv", delimiter='/', data_files=["fullTrain.csv"], split="train")
-        for i in range(0, 10):
-            print("kfold: "+str(i))
+	for i in range(0, 10):
+	    print("kfold: "+str(i))
 	    d = dataset.train_test_split(test_size=0.05)
 
 
@@ -176,7 +176,7 @@ def Bert():
 	    model.to(device)
 
 	    training_args = TrainingArguments(
-                output_dir="hf-model-max-3",          # output directory to where save model checkpoint
+	            output_dir="hf-model-max-3",          # output directory to where save model checkpoint
 	        evaluation_strategy="steps",    # evaluate each `logging_steps` steps
 	        overwrite_output_dir=True,      
 	        num_train_epochs=100,            # number of training epochs, feel free to tweak
@@ -186,15 +186,15 @@ def Bert():
 	        logging_steps=100,             # evaluate, log and save model checkpoints every 1000 step
 	        save_steps=100,
 	        warmup_steps=500,                # number of warmup steps for learning rate scheduler
-                weight_decay=0.01,               # strength of weight
-                load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
+	        weight_decay=0.01,               # strength of weight
+	        load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
 	        save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
 	    )
 
 	    # initialize the trainer and pass everything to it
 	    trainer = Trainer(
 	        model=model,
-                compute_metrics=flat_acc_eval,
+	            compute_metrics=flat_acc_eval,
 	        args=training_args,
 	        train_dataset=train_dataset,
 	        eval_dataset=test_dataset,
