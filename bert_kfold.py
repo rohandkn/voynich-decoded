@@ -145,7 +145,7 @@ def Bert():
   
 
 
-  model = BertForSequenceClassification.from_pretrained("pretrained-bert/checkpoint-18000", num_labels=6)
+  model = BertForSequenceClassification.from_pretrained("hf-model/checkpoint-100", num_labels=6)
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
@@ -189,7 +189,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
     train_loss_set = []
-    epochs = 3
+    epochs = 0
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -237,18 +237,18 @@ def Bert():
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     torch.save(model.state_dict(), "bestmodel.rpt")
-  #model.to('cpu')
-  #pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  model.to('cpu')
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
   #prediction = pipe(lines)
-  #explainer = shap.Explainer(pipe)
-  #shap_values = explainer(lines)
-  #np.save("shap_values_values.npy", shap_values.values)
-  #np.save("shap_values_data.npy", shap_values.data)
+  explainer = shap.Explainer(pipe[::3])
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data)
   return val_accs
 
 valacc = Bert()
 
-print(sum(valacc)/len(valacc))
+#print(sum(valacc)/len(valacc))
 
 
 #shap_get_sum(54, 2)
