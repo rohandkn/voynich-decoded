@@ -143,7 +143,7 @@ def Bert():
     attention_masks.append(seq_mask)
   
 
-  pdb.set_trace()
+  #pdb.set_trace()
   model = torch.load("bestmodel.rpt", map_location=torch.device('cpu')) #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
   model.to(device)
 
