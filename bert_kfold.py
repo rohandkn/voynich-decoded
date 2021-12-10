@@ -143,7 +143,7 @@ def Bert():
   
 
 
-  model = BertForSequenceClassification.from_pretrained("bestmodel", num_labels=6)
+  model = BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
@@ -187,7 +187,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
     train_loss_set = []
-    epochs = 3
+    epochs = 0
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
