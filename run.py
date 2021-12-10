@@ -61,21 +61,6 @@ class VoynichDataset(Dataset):
 	def __getitem__(self, idx):
 		return self.dataset[idx]
 
-class LSTM(nn.Module):
-	def __init__(self, vocab_len, embed_len, hidden_len):
-		super(LSTM, self).__init__()
-		self.embedding = nn.Embedding(vocab_len, embed_len, padding_idx=0)
-		self.lstm = nn.LSTM(input_size=embed_len, hidden_size=hidden_len, num_layers=1, batch_first=True, bidirectional=True)
-		self.dropout = nn.Dropout(0.3)
-		self.linear = nn.Linear(hidden_len, 6)
-		self.hidden_len = hidden_len
-	def forward(self, x, x_len):
-		out = self.embedding(x)
-		out = self.dropout(out)
-		out = pack_padded_sequence(out, x_len, batch_first=True, enforce_sorted=False)
-		a, (out, b) = self.lstm(out)
-		out = self.linear(out[-1])
-		return out
 
 def train_model(model, train_dl, epochs, lr, val_dl,lS):
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -140,6 +125,8 @@ def flat_accuracy(preds, labels):
 	labels_flat = labels.flatten()
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
+def flat_acc_eval(x):
+    return {"flat":flat_accuracy(x.predictions, x.label_ids)}
 
 
 def Bert():
@@ -163,7 +150,7 @@ def Bert():
 	n_gpu = torch.cuda.device_count()
 	#torch.cuda.get_device_name(0)
 
-	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+	tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
 
 	def encode_with_truncation(examples):
 
@@ -175,7 +162,7 @@ def Bert():
 
 	dataset = load_dataset("csv", delimiter='/', data_files=["fullTrain.csv"], split="train")
 	
-	d = dataset.train_test_split(test_size=0.1)
+	d = dataset.train_test_split(test_size=0.05)
 
 
 	train_dataset = d["train"].map(encode_with_truncation, batched=True)
@@ -184,11 +171,11 @@ def Bert():
 
 
 
-	model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+	model = XLMRobertaForSequenceClassification.from_pretrained("hf-model/checkpoint-600", num_labels=6)
 	model.to(device)
 
 	training_args = TrainingArguments(
-	    output_dir="testingthistingg",          # output directory to where save model checkpoint
+            output_dir="hf-model",          # output directory to where save model checkpoint
 	    evaluation_strategy="steps",    # evaluate each `logging_steps` steps
 	    overwrite_output_dir=True,      
 	    num_train_epochs=100,            # number of training epochs, feel free to tweak
@@ -196,14 +183,17 @@ def Bert():
 	    gradient_accumulation_steps=8,  # accumulating the gradients before updating the weights
 	    per_device_eval_batch_size=3,  # evaluation batch size
 	    logging_steps=100,             # evaluate, log and save model checkpoints every 1000 step
-	    save_steps=1000,
-	    # load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
+	    save_steps=100,
+	    warmup_steps=500,                # number of warmup steps for learning rate scheduler
+            weight_decay=0.01,               # strength of weight
+            # load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
 	    # save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
 	)
 
 	# initialize the trainer and pass everything to it
 	trainer = Trainer(
 	    model=model,
+            compute_metrics=flat_acc_eval,
 	    args=training_args,
 	    train_dataset=train_dataset,
 	    eval_dataset=test_dataset,
