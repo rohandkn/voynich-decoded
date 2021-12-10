@@ -144,7 +144,7 @@ def Bert():
   
 
   #pdb.set_trace()
-  model = BertForSequenceClassification.from_pretrained("pretrained-bert-base", num_labels=6)
+  model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
   model.load_state_dict(torch.load("bestmodel.rpt", map_location=torch.device('cpu')))
   #model = torch.load("bestmodel.rpt", map_location=torch.device('cpu')) #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
   #model.to(device)
