@@ -145,7 +145,7 @@ def Bert():
 
   #pdb.set_trace()
   model = torch.load("bestmodel.rpt", map_location=torch.device('cpu')) #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
-  model.to(device)
+  #model.to(device)
 
   param_optimizer = list(model.named_parameters())
   no_decay = ['bias', 'gamma', 'beta']
