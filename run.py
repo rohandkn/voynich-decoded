@@ -171,7 +171,7 @@ def Bert():
 
 
 
-	model = XLMRobertaForSequenceClassification.from_pretrained("hf-model/checkpoint-600", num_labels=6)
+	model = XLMRobertaForSequenceClassification.from_pretrained("hf-model/checkpoint-100", num_labels=6)
 	model.to(device)
 
 	training_args = TrainingArguments(
@@ -199,7 +199,15 @@ def Bert():
 	    eval_dataset=test_dataset,
 	)
 
-	trainer.train()
+	#trainer.train()
+
+	model.to('cpu')
+	pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+	#prediction = pipe(lines)
+	explainer = shap.Explainer(pipe[::3])
+	shap_values = explainer(lines)
+	np.save("shap_values_values.npy", shap_values.values)
+	np.save("shap_values_data.npy", shap_values.data)
 
 Bert()
 
