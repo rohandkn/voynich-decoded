@@ -180,8 +180,8 @@ def Bert():
 	model.to('cpu')
 	pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
 	#prediction = pipe(lines)
-	explainer = shap.Explainer(pipe[::3])
-	shap_values = explainer(lines)
+	explainer = shap.Explainer(pipe)
+	shap_values = explainer(lines[::3])
 	np.save("shap_values_values.npy", shap_values.values)
 	np.save("shap_values_data.npy", shap_values.data)
 
