@@ -22,6 +22,7 @@ from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 from sklearn.model_selection import KFold
+import shap
 
 def flat_accuracy(preds, labels):
 	pred_flat = np.argmax(preds, axis=1).flatten()
@@ -146,6 +147,7 @@ def Bert():
 
 
   model = BertForSequenceClassification.from_pretrained("pretrained-bert/checkpoint-18000", num_labels=6)
+  model.load_state_dict(torch.load("bestmodel.rpt"))
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
@@ -189,7 +191,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
     train_loss_set = []
-    epochs = 3
+    epochs = 0
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -238,12 +240,12 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     torch.save(model.state_dict(), "bestmodel.rpt")
   #model.to('cpu')
-  #pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  #prediction = pipe(lines)
-  #explainer = shap.Explainer(pipe)
-  #shap_values = explainer(lines)
-  #np.save("shap_values_values.npy", shap_values.values)
-  #np.save("shap_values_data.npy", shap_values.data)
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  prediction = pipe(lines)
+  explainer = shap.Explainer(pipe)
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data)
   return val_accs
 
 valacc = Bert()
