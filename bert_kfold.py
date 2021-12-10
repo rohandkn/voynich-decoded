@@ -143,7 +143,7 @@ def Bert():
   
 
 
-  model = torch.load("bestmodel.rpt") #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
+  model = torch.load("bestmodel.rpt", allow_pickle=True) #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
