@@ -23,3 +23,7 @@ for page in vm.pages:
 with open('full.txt', 'a') as full:
 	for line in lines:
 		full.write(line+"\n")
+
+with open('fullTrain.csv', 'a') as full:
+	for i in range(0, len(lines)):
+		full.write(lines[i]+"/"+str(labels[i])+"\n")
