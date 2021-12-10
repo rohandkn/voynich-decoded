@@ -10,6 +10,7 @@ from transformers import *
 from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 from tqdm import trange
+import shap
 
 class VoynichDataset(Dataset):
 	"""Custom dataset."""
