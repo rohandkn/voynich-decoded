@@ -20,6 +20,7 @@ from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 from sklearn.model_selection import KFold
+import pdb
 
 def flat_accuracy(preds, labels):
   pred_flat = np.argmax(preds, axis=1).flatten()
@@ -142,7 +143,7 @@ def Bert():
     attention_masks.append(seq_mask)
   
 
-
+  pdb.set_trace()
   model = torch.load("bestmodel.rpt") #BertForSequenceClassification.from_pretrained("bestmodel.rpt", num_labels=6)
   model.to(device)
 
