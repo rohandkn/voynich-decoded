@@ -6,8 +6,8 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset, RandomSampler, 
 from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
 from sklearn.metrics import classification_report
 import numpy as np
-from keras.preprocessing.sequence import pad_sequences
-from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
+from transformers import *
+from datasets import load_dataset
 from sklearn.model_selection import train_test_split
 from tqdm import trange
 
@@ -61,21 +61,6 @@ class VoynichDataset(Dataset):
 	def __getitem__(self, idx):
 		return self.dataset[idx]
 
-class LSTM(nn.Module):
-	def __init__(self, vocab_len, embed_len, hidden_len):
-		super(LSTM, self).__init__()
-		self.embedding = nn.Embedding(vocab_len, embed_len, padding_idx=0)
-		self.lstm = nn.LSTM(input_size=embed_len, hidden_size=hidden_len, num_layers=1, batch_first=True, bidirectional=True)
-		self.dropout = nn.Dropout(0.3)
-		self.linear = nn.Linear(hidden_len, 6)
-		self.hidden_len = hidden_len
-	def forward(self, x, x_len):
-		out = self.embedding(x)
-		out = self.dropout(out)
-		out = pack_padded_sequence(out, x_len, batch_first=True, enforce_sorted=False)
-		a, (out, b) = self.lstm(out)
-		out = self.linear(out[-1])
-		return out
 
 def train_model(model, train_dl, epochs, lr, val_dl,lS):
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -140,6 +125,10 @@ def flat_accuracy(preds, labels):
 	labels_flat = labels.flatten()
 	return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
+def flat_acc_eval(x):
+    return {"flat":flat_accuracy(x.predictions, x.label_ids)}
+
+
 def Bert():
 	lines = []
 	labelNums = {}
@@ -161,102 +150,56 @@ def Bert():
 	n_gpu = torch.cuda.device_count()
 	#torch.cuda.get_device_name(0)
 
-	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
-	tokenized_texts = [tokenizer.tokenize(line) for line in lines]
+	tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
 
-	MAX_LEN = 128
-	input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
-		                       maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
-	input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
-	input_ids = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+	def encode_with_truncation(examples):
 
 
-	attention_masks = []
-	for seq in input_ids:
-		seq_mask = [float(i>0) for i in seq]
-		attention_masks.append(seq_mask)
+	  """Mapping function to tokenize the sentences passed with truncation"""
 
-	train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(input_ids, labels, random_state=2018, test_size=0.1)
-	train_masks, validation_masks, _, _ = train_test_split(attention_masks, input_ids, random_state=2018, test_size=0.1)
+	  print(type(examples))
+	  return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=128)
 
-	train_inputs = torch.tensor(train_inputs)
-	validation_inputs = torch.tensor(validation_inputs)
-	train_labels = torch.tensor(train_labels)
-	validation_labels = torch.tensor(validation_labels)
-	train_masks = torch.tensor(train_masks)
-	validation_masks = torch.tensor(validation_masks)
+	dataset = load_dataset("csv", delimiter='/', data_files=["fullTrain.csv"], split="train")
+	
+	d = dataset.train_test_split(test_size=0.05)
 
-	batch_size = 32
 
-	train_data = TensorDataset(train_inputs, train_masks, train_labels)
-	train_sampler = RandomSampler(train_data)
-	train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batch_size)
-	validation_data = TensorDataset(validation_inputs, validation_masks, validation_labels)
-	validation_sampler = SequentialSampler(validation_data)
-	validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
+	train_dataset = d["train"].map(encode_with_truncation, batched=True)
+	# tokenizing the testing dataset
+	test_dataset = d["test"].map(encode_with_truncation, batched=True)
 
-	model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=6)
+
+
+	model = XLMRobertaForSequenceClassification.from_pretrained("hf-model/checkpoint-600", num_labels=6)
 	model.to(device)
 
-	param_optimizer = list(model.named_parameters())
-	no_decay = ['bias', 'gamma', 'beta']
-	optimizer_grouped_parameters = [
-		{'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
-		 'weight_decay_rate': 0.01},
-		{'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
-		 'weight_decay_rate': 0.0}
-	]
+	training_args = TrainingArguments(
+            output_dir="hf-model",          # output directory to where save model checkpoint
+	    evaluation_strategy="steps",    # evaluate each `logging_steps` steps
+	    overwrite_output_dir=True,      
+	    num_train_epochs=100,            # number of training epochs, feel free to tweak
+	    per_device_train_batch_size=3, # the training batch size, put it as high as your GPU memory fits
+	    gradient_accumulation_steps=8,  # accumulating the gradients before updating the weights
+	    per_device_eval_batch_size=3,  # evaluation batch size
+	    logging_steps=100,             # evaluate, log and save model checkpoints every 1000 step
+	    save_steps=100,
+	    warmup_steps=500,                # number of warmup steps for learning rate scheduler
+            weight_decay=0.01,               # strength of weight
+            # load_best_model_at_end=True,  # whether to load the best model (in terms of loss) at the end of training
+	    # save_total_limit=3,           # whether you don't have much space so you let only 3 model weights saved in the disk
+	)
 
-	optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
+	# initialize the trainer and pass everything to it
+	trainer = Trainer(
+	    model=model,
+            compute_metrics=flat_acc_eval,
+	    args=training_args,
+	    train_dataset=train_dataset,
+	    eval_dataset=test_dataset,
+	)
 
-	train_loss_set = []
-	epochs = 4
-	for _ in trange(epochs, desc="Epoch"):
-		model.train()
-
-		tr_loss = 0
-		nb_tr_examples, nb_tr_steps = 0, 0
-
-		for step, batch in enumerate(train_dataloader):
-
-			batch = tuple(t.to(device) for t in batch)
-
-			b_input_ids, b_input_mask, b_labels = batch
-
-			optimizer.zero_grad()
-
-			loss = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask, labels=b_labels)
-			train_loss_set.append(loss.item())
-
-			loss.backward()
-
-			optimizer.step()
-
-			tr_loss += loss.item()
-			nb_tr_examples += b_input_ids.size(0)
-			nb_tr_steps += 1
-		print("Train loss: {}".format(tr_loss/nb_tr_steps))
-
-		model.eval()
-
-		eval_loss, eval_accuracy = 0, 0
-		nb_eval_steps, nb_eval_examples = 0, 0
-
-		for batch in validation_dataloader:
-
-			batch = tuple(t.to(device) for t in batch)
-
-			b_input_ids, b_input_mask, b_labels = batch
-
-			with torch.no_grad():
-				logits = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
-
-			logits = logits.detach().cpu().numpy()
-			label_ids = b_labels.to('cpu').numpy()
-			tmp_eval_accuracy = flat_accuracy(logits, label_ids)
-			eval_accuracy += tmp_eval_accuracy
-			nb_eval_steps += 1
-		print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
+	trainer.train()
 
 Bert()
 
