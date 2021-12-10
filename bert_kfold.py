@@ -106,7 +106,7 @@ def shap_get_max(line_count, fold):
 
 def Bert():
   kcount = 1
-  kf = KFold(n_splits=10)
+  kf = KFold(n_splits=4)
   val_accs = []
   lines = []
   labelNums = {}
@@ -143,6 +143,22 @@ def Bert():
     seq_mask = [float(i>0) for i in seq]
     attention_masks.append(seq_mask)
   
+
+
+  model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
+  model.to(device)
+
+  param_optimizer = list(model.named_parameters())
+  no_decay = ['bias', 'gamma', 'beta']
+  optimizer_grouped_parameters = [
+      {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+      'weight_decay_rate': 0.01},
+      {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
+      'weight_decay_rate': 0.0}
+    ]
+
+  optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
+
   for train_index, test_index in kf.split(input_ids, labels):
     #print(len(input_ids))
     labels = np.array(labels)
@@ -172,21 +188,6 @@ def Bert():
     validation_data = TensorDataset(validation_inputs, validation_masks, validation_labels)
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
-
-    model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
-    model.to(device)
-
-    param_optimizer = list(model.named_parameters())
-    no_decay = ['bias', 'gamma', 'beta']
-    optimizer_grouped_parameters = [
-      {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
-      'weight_decay_rate': 0.01},
-      {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
-      'weight_decay_rate': 0.0}
-    ]
-
-    optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
-
     train_loss_set = []
     epochs = 5
     for _ in trange(epochs, desc="Epoch"):
@@ -235,15 +236,14 @@ def Bert():
         eval_accuracy += tmp_eval_accuracy
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
-    val_accs.append(eval_accuracy/nb_eval_steps)
-
-  model.to('cpu')
-  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  prediction = pipe(lines)
-  explainer = shap.Explainer(pipe)
-  shap_values = explainer(lines)
-  np.save("shap_values_values.npy", shap_values.values)
-  np.save("shap_values_data.npy", shap_values.data)
+  model.save_pretrained("new-one"+str(epoch))
+  #model.to('cpu')
+  #pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  #prediction = pipe(lines)
+  #explainer = shap.Explainer(pipe)
+  #shap_values = explainer(lines)
+  #np.save("shap_values_values.npy", shap_values.values)
+  #np.save("shap_values_data.npy", shap_values.data)
   return val_accs
 
 valacc = Bert()
