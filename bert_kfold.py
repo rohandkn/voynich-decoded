@@ -14,23 +14,23 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import Dataset, DataLoader, TensorDataset, RandomSampler, SequentialSampler
-from torchtext.legacy.data import Field, TabularDataset, BucketIterator	
+from torchtext.legacy.data import Field, TabularDataset, BucketIterator 
 from sklearn.metrics import classification_report
 import numpy as np
 from keras.preprocessing.sequence import pad_sequences
-from pytorch_pretrained_bert import BertTokenizer, BertForSequenceClassification, BertAdam
+import transformers
+from transformers import XLMRobertaTokenizer, XLMRobertaForSequenceClassification
+from transformers import AdamW, TextClassificationPipeline
 from sklearn.model_selection import train_test_split
 from tqdm import trange
-from sklearn.model_selection import KFold
 import shap
+from sklearn.model_selection import KFold
 import pdb
 
-from transformers import TextClassificationPipeline
-
 def flat_accuracy(preds, labels):
-	pred_flat = np.argmax(preds, axis=1).flatten()
-	labels_flat = labels.flatten()
-	return np.sum(pred_flat == labels_flat) / len(labels_flat)
+  pred_flat = np.argmax(preds, axis=1).flatten()
+  labels_flat = labels.flatten()
+  return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
 def shap_get_sum(line_count, fold):
   shap_values_data = np.load("shap_values_data" + str(fold) + ".npy", allow_pickle=True)
@@ -109,8 +109,11 @@ def shap_get_max(line_count, fold):
   print("Saved to " + "shap_max" + str(fold) + ".npy")
 
 def Bert():
+  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  n_gpu = torch.cuda.device_count()
+
   kcount = 1
-  kf = KFold(n_splits=10, shuffle=True)
+  kf = KFold(n_splits=10)
   val_accs = []
   lines = []
   labelNums = {}
@@ -128,11 +131,9 @@ def Bert():
       lines.append("[CLS]" + line.text.replace(".", " ") + "[SEP]")
       labels.append(section_label)
 
-  device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
-  tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
+  tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
   tokenized_texts = [tokenizer.tokenize(line) for line in lines]
 
   MAX_LEN = 128
@@ -147,23 +148,6 @@ def Bert():
     seq_mask = [float(i>0) for i in seq]
     attention_masks.append(seq_mask)
   
-
-
-  model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
-  #model.load_state_dict(torch.load("bestmodel.rpt", map_location=torch.device('cpu')))
-  model.to(device)
-
-  param_optimizer = list(model.named_parameters())
-  no_decay = ['bias', 'gamma', 'beta']
-  optimizer_grouped_parameters = [
-      {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
-      'weight_decay_rate': 0.01},
-      {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
-      'weight_decay_rate': 0.0}
-    ]
-
-  optimizer = BertAdam(optimizer_grouped_parameters, lr=2e-5, warmup=0.1)
-
   for train_index, test_index in kf.split(input_ids, labels):
     #print(len(input_ids))
     labels = np.array(labels)
@@ -175,8 +159,8 @@ def Bert():
     train_masks, validation_masks = attention_masks[train_index], attention_masks[test_index]
      
 
-	  #train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(input_ids, labels, random_state=2018, test_size=0.1)
-	  #train_masks, validation_masks, _, _ = train_test_split(attention_masks, input_ids, random_state=2018, test_size=0.1)
+    #train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(input_ids, labels, random_state=2018, test_size=0.1)
+    #train_masks, validation_masks, _, _ = train_test_split(attention_masks, input_ids, random_state=2018, test_size=0.1)
 
     train_inputs = torch.tensor(train_inputs)
     validation_inputs = torch.tensor(validation_inputs)
@@ -193,6 +177,21 @@ def Bert():
     validation_data = TensorDataset(validation_inputs, validation_masks, validation_labels)
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
+
+    model = XLMRobertaForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
+    model.to(device)
+
+    param_optimizer = list(model.named_parameters())
+    no_decay = ['bias', 'gamma', 'beta']
+    optimizer_grouped_parameters = [
+      {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
+      'weight_decay_rate': 0.01},
+      {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
+      'weight_decay_rate': 0.0}
+    ]
+
+    optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5)
+
     train_loss_set = []
     epochs = 0
     for _ in trange(epochs, desc="Epoch"):
@@ -241,21 +240,19 @@ def Bert():
         eval_accuracy += tmp_eval_accuracy
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
-    torch.save(model.state_dict(), "bestmodel.rpt")
-  #model.to('cpu')
-  pdb.set_trace()
+      val_accs.append(eval_accuracy/nb_eval_steps)
+
+  model.to('cpu')
   pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  prediction = pipe(lines)
+  prediction = pipe(lines[::100])
   explainer = shap.Explainer(pipe)
-  shap_values = explainer(lines)
-  np.save("shap_values_values.npy", shap_values.values)
-  np.save("shap_values_data.npy", shap_values.data)
+  shap_values = explainer(lines[::100])
+  np.save("shap_values_values" + str(kcount) + ".npy", shap_values.values)
+  np.save("shap_values_data" + str(kcount) + ".npy", shap_values.data)
+
   return val_accs
 
-valacc = Bert()
-
-print(sum(valacc)/len(valacc))
-
+#valacc = Bert()
 
 #shap_get_sum(54, 2)
 #shap_get_max(54, 2)
@@ -267,3 +264,5 @@ print(sum(valacc)/len(valacc))
 #shap_get_max(54, 4)
 
 #print("Num Lines: " + str(len(lines[::100])))
+
+#print(sum(valacc)/len(valacc))
