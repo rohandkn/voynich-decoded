@@ -24,6 +24,8 @@ from tqdm import trange
 from sklearn.model_selection import KFold
 import shap
 
+from transformers import TextClassificationPipeline
+
 def flat_accuracy(preds, labels):
 	pred_flat = np.argmax(preds, axis=1).flatten()
 	labels_flat = labels.flatten()
