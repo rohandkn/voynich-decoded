@@ -147,7 +147,7 @@ def Bert():
 
 
   model = BertForSequenceClassification.from_pretrained("pretrained-bert/checkpoint-18000", num_labels=6)
-  model.load_state_dict(torch.load("bestmodel.rpt"))
+  model.load_state_dict(torch.load("bestmodel.rpt", map_location=torch.device('cpu')))
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
