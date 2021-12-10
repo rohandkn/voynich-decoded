@@ -145,7 +145,7 @@ def Bert():
   
 
 
-  model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
+  model = BertForSequenceClassification.from_pretrained("bestmodel", num_labels=6)
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
