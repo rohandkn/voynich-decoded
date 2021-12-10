@@ -161,14 +161,14 @@ def Bert():
 	  print(type(examples))
 	  return tokenizer(examples["text"], truncation=True, padding="max_length", max_length=128)
 
-	dataset = load_dataset("csv", delimiter='/', data_files=["fullTrain.csv"], split="train")
+	#dataset = load_dataset("csv", delimiter='/', data_files=["fullTrain.csv"], split="train")
 	
-	d = dataset.train_test_split(test_size=0.05)
+	#d = dataset.train_test_split(test_size=0.05)
 
 
-	train_dataset = d["train"].map(encode_with_truncation, batched=True)
+	#train_dataset = d["train"].map(encode_with_truncation, batched=True)
 	# tokenizing the testing dataset
-	test_dataset = d["test"].map(encode_with_truncation, batched=True)
+	#test_dataset = d["test"].map(encode_with_truncation, batched=True)
 
 
 
