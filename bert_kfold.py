@@ -189,7 +189,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
     train_loss_set = []
-    epochs = 5
+    epochs = 0
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -237,13 +237,13 @@ def Bert():
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
   model.save_pretrained("new-one"+str(epoch))
-  #model.to('cpu')
-  #pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
-  #prediction = pipe(lines)
-  #explainer = shap.Explainer(pipe)
-  #shap_values = explainer(lines)
-  #np.save("shap_values_values.npy", shap_values.values)
-  #np.save("shap_values_data.npy", shap_values.data)
+  model.to('cpu')
+  pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+  prediction = pipe(lines)
+  explainer = shap.Explainer(pipe)
+  shap_values = explainer(lines)
+  np.save("shap_values_values.npy", shap_values.values)
+  np.save("shap_values_data.npy", shap_values.data)
   return val_accs
 
 valacc = Bert()
