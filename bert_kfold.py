@@ -23,6 +23,7 @@ from sklearn.model_selection import train_test_split
 from tqdm import trange
 from sklearn.model_selection import KFold
 import shap
+import pdb
 
 from transformers import TextClassificationPipeline
 
@@ -242,6 +243,7 @@ def Bert():
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
     torch.save(model.state_dict(), "bestmodel.rpt")
   #model.to('cpu')
+  pdb.set_trace()
   pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
   prediction = pipe(lines)
   explainer = shap.Explainer(pipe)
