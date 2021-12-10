@@ -106,7 +106,7 @@ def shap_get_max(line_count, fold):
 
 def Bert():
   kcount = 1
-  kf = KFold(n_splits=4)
+  kf = KFold(n_splits=10, shuffle=True)
   val_accs = []
   lines = []
   labelNums = {}
@@ -128,7 +128,7 @@ def Bert():
   n_gpu = torch.cuda.device_count()
   #torch.cuda.get_device_name(0)
 
-  tokenizer = BertTokenizer.from_pretrained('xlm-roberta-base', do_lower_case=True)
+  tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', do_lower_case=True)
   tokenized_texts = [tokenizer.tokenize(line) for line in lines]
 
   MAX_LEN = 128
@@ -145,7 +145,7 @@ def Bert():
   
 
 
-  model = BertForSequenceClassification.from_pretrained("roberta-1/checkpoint-4000", num_labels=6)
+  model = BertForSequenceClassification.from_pretrained("pretrained-bert/checkpoint-18000", num_labels=6)
   model.to(device)
 
   param_optimizer = list(model.named_parameters())
@@ -189,7 +189,7 @@ def Bert():
     validation_sampler = SequentialSampler(validation_data)
     validation_dataloader = DataLoader(validation_data, sampler=validation_sampler, batch_size=batch_size)
     train_loss_set = []
-    epochs = 5
+    epochs = 3
     for _ in trange(epochs, desc="Epoch"):
       model.train()
 
@@ -236,7 +236,7 @@ def Bert():
         eval_accuracy += tmp_eval_accuracy
         nb_eval_steps += 1
       print("Validation Accuracy: {}".format(eval_accuracy/nb_eval_steps))
-  model.save_pretrained("new-one"+str(epoch))
+    torch.save(model.state_dict(), "bestmodel.rpt")
   #model.to('cpu')
   #pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
   #prediction = pipe(lines)
