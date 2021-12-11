@@ -253,7 +253,7 @@ def Bert():
 
 	#trainer.train()
 	print(len(lines[::3]))
-	return
+	exit(0)
 
 	model.to('cpu')
 	pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
@@ -263,7 +263,7 @@ def Bert():
 	np.save("shap_values_values.npy", shap_values.values)
 	np.save("shap_values_data.npy", shap_values.data)
 
-#Bert()
+Bert()
 
 
 
