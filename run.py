@@ -263,7 +263,7 @@ def Bert():
 	np.save("shap_values_values.npy", shap_values.values)
 	np.save("shap_values_data.npy", shap_values.data)
 
-Bert()
+#Bert()
 
 # 1797
 
