@@ -1,6 +1,7 @@
 from voynich import VoynichManuscript
 import random
-
+import string
+import re
 
 labelCount = 0
 labels = []
@@ -16,14 +17,18 @@ for page in vm.pages:
 		labelNums[vm.pages[page].section] = labelCount
 		labelCount += 1
 	for line in vm.pages[page]:
-		lines.append(line.text.replace(".", " "))
-		labels.append(section_label)
+            pline = re.sub(r'[^A-Za-z0-9.]+', '', line.text)
+            pline = pline.replace(".", " ")
+            print(type(pline))
+            lines.append(pline)
+            labels.append(section_label)
 
 
-with open('full.txt', 'a') as full:
+with open('full.txt','w') as full:
 	for line in lines:
 		full.write(line+"\n")
 
-with open('fullTrain.csv', 'a') as full:
-	for i in range(0, len(lines)):
-		full.write(lines[i]+"/"+str(labels[i])+"\n")
+with open('fullTrain.csv', 'w') as full:
+        full.write("text/label\n")
+        for i in range(0, len(lines)):
+            full.write(lines[i]+"/"+str(labels[i])+"\n")
