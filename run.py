@@ -164,8 +164,6 @@ def Bert():
 	for i in range(0, 10):
 	    print("kfold: "+str(i))
 	    d = dataset.train_test_split(test_size=0.05)
-
-
 	    train_dataset = d["train"].map(encode_with_truncation, batched=True)
 	    # tokenizing the testing dataset
 	    test_dataset = d["test"].map(encode_with_truncation, batched=True)
@@ -179,11 +177,11 @@ def Bert():
 	            output_dir="hf-model-max-3",          # output directory to where save model checkpoint
 	        evaluation_strategy="steps",    # evaluate each `logging_steps` steps
 	        overwrite_output_dir=True,      
-	        num_train_epochs=100,            # number of training epochs, feel free to tweak
-	        per_device_train_batch_size=3, # the training batch size, put it as high as your GPU memory fits
-	        gradient_accumulation_steps=8,  # accumulating the gradients before updating the weights
-	        per_device_eval_batch_size=3,  # evaluation batch size
-	        logging_steps=100,             # evaluate, log and save model checkpoints every 1000 step
+	        num_train_epochs=5,            # number of training epochs, feel free to tweak
+	        per_device_train_batch_size=32, # the training batch size, put it as high as your GPU memory fits
+	        gradient_accumulation_steps=1,  # accumulating the gradients before updating the weights
+	        per_device_eval_batch_size=32,  # evaluation batch size
+	        logging_steps=50,             # evaluate, log and save model checkpoints every 1000 step
 	        save_steps=100,
 	        warmup_steps=500,                # number of warmup steps for learning rate scheduler
 	        weight_decay=0.01,               # strength of weight
