@@ -253,7 +253,7 @@ def Bert():
 
 	#trainer.train()
 	print(len(lines[::3]))
-	exit(0)
+	return
 
 	model.to('cpu')
 	pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
