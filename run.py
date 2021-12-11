@@ -267,8 +267,8 @@ def Bert():
 
 # 1797
 
-shap_get_sum(1797)
-shap_get_max(1797)
+shap_get_sum(1797) #shap_sum.npy
+shap_get_max(1797) #shap_max.npy
 
 
 
