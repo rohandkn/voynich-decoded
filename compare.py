@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torch import nn
 from sklearn.metrics import roc_auc_score
+from transformers import XLMRobertaForSequenceClassification
 
 from generate_test_data import load_test_data
 
@@ -67,9 +68,15 @@ def get_roc_auc_score(model, dataloader, similarityFn, device=torch.device('cpu'
 
 #### for testing
 if __name__ == "__main__":
-    dataset = load_test_data("test_inputs.pt", "test_masks.pt", "test_labels.pt")
+    dataset = load_test_data("siamese_test_inputs.pt", "siamese_test_masks.pt", "siamese_test_labels.pt")
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
     
-    model = None
+    print("using cuda:", torch.cuda.is_available())
+    
+    model = XLMRobertaForSequenceClassification.from_pretrained("hf_model/checkpoint-100", num_labels=6, output_hidden_states=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+    print("successfully loaded model")
+
     similarityFn = nn.CosineSimilarity()
-    print(get_roc_auc_score(model, dataloader, similarityFn))
+    print(get_roc_auc_score(model, dataloader, similarityFn, device))

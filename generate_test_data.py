@@ -108,4 +108,4 @@ def load_test_data(inputs_filename, masks_filename, labels_filename):
 
 
 if __name__ == "__main__":
-    generate_test_data("test_inputs.pt", "test_masks.pt", "test_labels.pt")
+    generate_test_data("siamese_test_inputs.pt", "siamese_test_masks.pt", "siamese_test_labels.pt")
