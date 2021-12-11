@@ -73,7 +73,7 @@ def generate_test_data(inputs_filename, masks_filename, labels_filename):
 
 
     # generate text comparison pairs
-    NUM_TEST_PAIRS = 1000
+    NUM_TEST_PAIRS = 2000
     input_indices = list(range(len(input_ids)))
     pair_gen = random_pair_generator(input_indices)
 

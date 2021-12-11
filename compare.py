@@ -10,28 +10,23 @@ from generate_test_data import load_test_data
 # Generates embeddings for a given input
 # assumes model is loaded into device
 # if model is None, a random torch tensor is returned as the embedding
-def get_embeddings_in_device_basic(model, text, device=torch.device('cpu')):
-    if (model != None):
-        model.eval()
+def get_embeddings_in_device(model, text, device=torch.device('cpu')):
+    model.eval()
 
     b_text = tuple(t.to(device) for t in text)
     b_input_ids, b_input_mask = b_text
 
-    # # this is for now, can change to a different embedding representation
-    if (model != None):
-        embedding = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
-        return embedding
-
-    # for testing purposes
-    return torch.randn((len(b_input_ids), 10))
-
-def get_embeddings_in_device(model, text, device=torch.device('cpu')):
-    pass
+    embedding = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
+    
+    # Get all hidden states
+    states = embedding.hidden_states
+    output = torch.stack([states[i] for i in range(len(states)-2, len(states))]).sum(0).squeeze()
+    return output.mean(dim=1)
 
 def compare_text(model, text1, text2, similarityFn, device=torch.device('cpu')):
 
-    embedding1 = get_embeddings_in_device_basic(model, text1, device)
-    embedding2 = get_embeddings_in_device_basic(model, text2, device)
+    embedding1 = get_embeddings_in_device(model, text1, device)
+    embedding2 = get_embeddings_in_device(model, text2, device)
     similarity = similarityFn(embedding1, embedding2)
 
     return similarity.cpu().detach().numpy()
@@ -65,7 +60,6 @@ def get_roc_auc_score(model, dataloader, similarityFn, device=torch.device('cpu'
     labels = get_labels(dataloader)
     return roc_auc_score(labels, similarityScores)
 
-
 #### for testing
 if __name__ == "__main__":
     dataset = load_test_data("siamese_test_inputs.pt", "siamese_test_masks.pt", "siamese_test_labels.pt")
@@ -73,10 +67,11 @@ if __name__ == "__main__":
     
     print("using cuda:", torch.cuda.is_available())
     
-    model = XLMRobertaForSequenceClassification.from_pretrained("hf_model/checkpoint-100", num_labels=6, output_hidden_states=True)
+    model = XLMRobertaForSequenceClassification.from_pretrained("hf-model/checkpoint-100", num_labels=6, output_hidden_states=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
     print("successfully loaded model")
-
+    
+    print("running similarity tests...")
     similarityFn = nn.CosineSimilarity()
-    print(get_roc_auc_score(model, dataloader, similarityFn, device))
+    print("ROC_AUC:", get_roc_auc_score(model, dataloader, similarityFn, device))
